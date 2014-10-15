@@ -15,7 +15,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+         terminate/2, code_change/3]).
 
 %% api from gsms_router
 -export([send/3]).   %% send straight
@@ -78,18 +78,19 @@
 -export([drv_send_message/3]).
 
 -include("../include/gsms.hrl").
+-include("log.hrl").
 
 -type qkey_t()    :: {#gsms_addr{},MRef::integer}.
 -type isegment_t() :: {I::integer(),Ix::integer(),Pdu::#gsms_deliver_pdu{}}.
 -type qelem_t()   :: {qkey_t(),TRef::reference(),N::integer,[isegment_t()]}.
 
 -type osegment_t() :: {send | write,
-		       I::integer,
-		       N::integer,
-		       SRef::reference(),
-		       Notify::boolean(),
-		       Sender::pid(), 
-		       Pdu::#gsms_submit_pdu{}}.
+                       I::integer,
+                       N::integer,
+                       SRef::reference(),
+                       Notify::boolean(),
+                       Sender::pid(),
+                       Pdu::#gsms_submit_pdu{}}.
 
 -type uart_driver() :: pid() | atom().
 
@@ -101,57 +102,57 @@
 -define(DEFAULT_SIMPIN, "").
 
 -type gsms_option() ::
-	{simpin, Pin::string()} |
-	{bnumber, Number::string()} |
-	{attributes, [{Key::atom(),Value::term()}]} |
-	{segment_timeout, Timeout::timeout()} |
-	{send_delay, Delay::timeout()} |
-	{concat_8bit, EightBit :: boolean()} |
-	{concat_seq,  Sequential :: boolean()}
-	.
+        {simpin, Pin::string()} |
+        {bnumber, Number::string()} |
+        {attributes, [{Key::atom(),Value::term()}]} |
+        {segment_timeout, Timeout::timeout()} |
+        {send_delay, Delay::timeout()} |
+        {concat_8bit, EightBit :: boolean()} |
+        {concat_seq,  Sequential :: boolean()}
+        .
 
 -type gsms_send_option() ::
-	{ref, ConCatRef::uint16()} |
-	{notify, boolean()}.
+        {ref, ConCatRef::uint16()} |
+        {notify, boolean()}.
 
 -record(state,
-	{
-	  id :: integer(),          %% id in gsms_router
-	  drv :: pid(),             %% pid of the gsms_uart AT driver
-	  ref :: reference(),       %% notification reference
-	  %% state
-	  drv_up  = false,                 %% drv ready to process
-	  sending = false :: boolean(),    %% sending message outstanding?
-	  inq = []  :: [qelem_t()],
-	  outq = [] :: [osegment_t()],
-	  concat_ref = ?DEFAULT_CONCAT_REF :: integer(),
-	  %% config
-	  bnumber = "" :: string(),    %% modem phone number
-	  simpin = "" :: string(),     %% SIM pin when needed
-	  segment_timeout :: timeout(),%% max wait for segment
-	  send_delay :: timeout(),     %% delay between sending segments
-	  concat_seq  :: boolean(),    %% concat ref is sequence or random
-	  concat_8bit :: boolean(),    %% 8bit or 16bit
-	  attributes = [] :: [{atom(),term()}]
-	}).
+        {
+          id :: integer(),          %% id in gsms_router
+          drv :: pid(),             %% pid of the gsms_uart AT driver
+          ref :: reference(),       %% notification reference
+          %% state
+          drv_up  = false,                 %% drv ready to process
+          sending = false :: boolean(),    %% sending message outstanding?
+          inq = []  :: [qelem_t()],
+          outq = [] :: [osegment_t()],
+          concat_ref = ?DEFAULT_CONCAT_REF :: integer(),
+          %% config
+          bnumber = "" :: string(),    %% modem phone number
+          simpin = "" :: string(),     %% SIM pin when needed
+          segment_timeout :: timeout(),%% max wait for segment
+          send_delay :: timeout(),     %% delay between sending segments
+          concat_seq  :: boolean(),    %% concat ref is sequence or random
+          concat_8bit :: boolean(),    %% 8bit or 16bit
+          attributes = [] :: [{atom(),term()}]
+        }).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
 -spec send(Pid::pid(), Opts::[gsms_pdu_option()|gsms_send_option()],
-	   Message::list()) ->
-		  {ok, Ref::reference()} | {error, Reason::term()}.
+           Message::list()) ->
+                  {ok, Ref::reference()} | {error, Reason::term()}.
 
 %%  send options: pdu_options ++ [{notify,boolean()},{ref,ConCatRef}]
 
 send(Pid, Opts, Message) ->
     gen_server:call(Pid, {send, self(), Opts, Message}).
 
--spec write(Pid::pid(), 
-	    Opts::[gsms_pdu_option()|gsms_send_option()],
-	    Message::list()) ->
-		   {ok, Ref::reference()} | {error, Reason::term()}.
+-spec write(Pid::pid(),
+            Opts::[gsms_pdu_option()|gsms_send_option()],
+            Message::list()) ->
+                   {ok, Ref::reference()} | {error, Reason::term()}.
 
 write(Pid, Opts, Message) ->
     gen_server:call(Pid, {write, self(), Opts, Message}).
@@ -188,7 +189,7 @@ get_smsc(Pid) ->
 list_unread_messages(Pid) ->
     gen_server:call(Pid, list_unread_messages).
 list_read_messages(Pid) ->
-    gen_server:call(Pid, list_read_messages).    
+    gen_server:call(Pid, list_read_messages).
 list_unsent_messages(Pid) ->
     gen_server:call(Pid, list_unsent_messages).
 list_sent_messages(Pid) ->
@@ -197,7 +198,7 @@ list_all_messages(Pid) ->
     gen_server:call(Pid, list_all_messages).
 list_indices(Pid) ->
     gen_server:call(Pid, list_indices).
-    
+
 delete_message(Pid, I) when is_integer(I), I>=0 ->
     gen_server:call(Pid, {delete_message, I}).
 delete_read_messages(Pid) ->
@@ -211,7 +212,7 @@ delete_all_messages(Pid) ->
 
 read_message(Pid,I) when is_integer(I), I>=0 ->
     gen_server:call(Pid, {read_messages,I}).
-    
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server
@@ -221,12 +222,12 @@ read_message(Pid,I) when is_integer(I), I>=0 ->
 %%--------------------------------------------------------------------
 
 -spec start(Id::integer(),Opts::[gsms_option()]) ->
-		   {ok,pid()} | {error,Reason::term()}.
+                   {ok,pid()} | {error,Reason::term()}.
 
 start(Id, Opts) when is_integer(Id), is_list(Opts) ->
     gsms:start(),
     ChildSpec= {{?MODULE,Id}, {?MODULE, start_link, [Id,Opts]},
-		permanent, 5000, worker, [?MODULE]},
+                permanent, 5000, worker, [?MODULE]},
     supervisor:start_child(gsms_if_sup, ChildSpec).
 
 %%--------------------------------------------------------------------
@@ -256,16 +257,16 @@ start_link(Id, Opts) ->
 %%--------------------------------------------------------------------
 init([Id,Opts]) ->
     State0 = #state { simpin = ?DEFAULT_SIMPIN,
-		      segment_timeout = ?DEFAULT_SEGMENT_TIMEOUT,
-		      send_delay = ?DEFAULT_SEND_DELAY,
-		      concat_seq = ?DEFAULT_CONCAT_SEQUENCE,
-		      concat_8bit = ?DEFAULT_CONCAT_8BIT },
+                      segment_timeout = ?DEFAULT_SEGMENT_TIMEOUT,
+                      send_delay = ?DEFAULT_SEND_DELAY,
+                      concat_seq = ?DEFAULT_CONCAT_SEQUENCE,
+                      concat_8bit = ?DEFAULT_CONCAT_8BIT },
     {Opts1,State1} = setopts(Opts, State0),
     {ok,Pid} = gsms_uart:start_link(Opts1),
     {ok,Ref} = gsms_uart:subscribe(Pid),  %% subscribe to all events
     {ok, State1#state { id = Id,
-			drv = Pid,
-			ref = Ref }}.
+                        drv = Pid,
+                        ref = Ref }}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -283,124 +284,124 @@ init([Id,Opts]) ->
 %%--------------------------------------------------------------------
 handle_call({send,Sender,Opts,Body}, _From, State) ->
     case gsms_codec:make_sms_submit(Opts, Body) of
-	{ok,PduList} ->
-	    {CRef,Opts1} = next_concat_ref(Opts,State),
-	    Notify = proplists:get_bool(notify, Opts1),
-	    N = length(PduList),
-	    SRef = make_ref(),
-	    OutQ = State#state.outq ++
-		[{send,I,N,SRef,Notify,Sender,Pdu} || 
-		    {Pdu,I} <- lists:zip(PduList, lists:seq(1,N))],
-	    State1 = sending(OutQ,State),
-	    {reply, {ok,SRef}, State1#state { concat_ref = CRef}};
-	Error ->
-	    {reply, Error, State}
+        {ok,PduList} ->
+            {CRef,Opts1} = next_concat_ref(Opts,State),
+            Notify = proplists:get_bool(notify, Opts1),
+            N = length(PduList),
+            SRef = make_ref(),
+            OutQ = State#state.outq ++
+                [{send,I,N,SRef,Notify,Sender,Pdu} ||
+                    {Pdu,I} <- lists:zip(PduList, lists:seq(1,N))],
+            State1 = sending(OutQ,State),
+            {reply, {ok,SRef}, State1#state { concat_ref = CRef}};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({write,Sender,Opts,Body}, _From, State) ->
     case gsms_codec:make_sms_submit(Opts, Body) of
-	{ok,PduList} ->
-	    {CRef,Opts1} = next_concat_ref(Opts,State),
-	    Notify = proplists:get_bool(notify, Opts1),
-	    N = length(PduList),
-	    WRef = make_ref(),
-	    OutQ = State#state.outq ++
-		[{write,I,N,WRef,Notify,Sender,Pdu} || 
-		    {Pdu,I} <- lists:zip(PduList, lists:seq(1,N))],
-	    State1 = sending(OutQ,State),
-	    {reply, {ok,WRef}, State1#state { concat_ref = CRef}};
-	Error ->
-	    {reply, Error, State}
+        {ok,PduList} ->
+            {CRef,Opts1} = next_concat_ref(Opts,State),
+            Notify = proplists:get_bool(notify, Opts1),
+            N = length(PduList),
+            WRef = make_ref(),
+            OutQ = State#state.outq ++
+                [{write,I,N,WRef,Notify,Sender,Pdu} ||
+                    {Pdu,I} <- lists:zip(PduList, lists:seq(1,N))],
+            State1 = sending(OutQ,State),
+            {reply, {ok,WRef}, State1#state { concat_ref = CRef}};
+        Error ->
+            {reply, Error, State}
     end;
 handle_call({cancel,Ref}, _From, State) ->
     %% Remove and segments not sent for SRef
     %% Possibly sent a cancel command ? if supported
     OutQ =
-	lists:foldr(
-	  fun(E={_Operation,_I,_N,Ref1,_Notify,_Sender,_Pdu}, Acc) ->
-		  if Ref1 =:= Ref -> Acc;
-		     true -> [E|Acc]
-		  end
-	  end, [], State#state.outq),
+        lists:foldr(
+          fun(E={_Operation,_I,_N,Ref1,_Notify,_Sender,_Pdu}, Acc) ->
+                  if Ref1 =:= Ref -> Acc;
+                     true -> [E|Acc]
+                  end
+          end, [], State#state.outq),
     {reply, ok, State#state { outq = OutQ }};
 
 handle_call(get_version, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_version(State#state.drv), State};
+            {reply, drv_get_version(State#state.drv), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call(get_manufacturer, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_manufacturer(State#state.drv), State};
+            {reply, drv_get_manufacturer(State#state.drv), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call(get_model, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_model(State#state.drv), State};
+            {reply, drv_get_model(State#state.drv), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call(get_imei, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_imei(State#state.drv), State};
+            {reply, drv_get_imei(State#state.drv), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call(get_msisdn, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_msisdn(State#state.drv), State};
+            {reply, drv_get_msisdn(State#state.drv), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call(get_imsi, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_imsi(State#state.drv), State};
+            {reply, drv_get_imsi(State#state.drv), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call(get_network_registration_status, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_network_registration_status(State#state.drv),
-	     State};
+            {reply, drv_get_network_registration_status(State#state.drv),
+             State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call(get_signal_strength, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_signal_strength(State#state.drv), State};
+            {reply, drv_get_signal_strength(State#state.drv), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call(get_battery_status, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_battery_status(State#state.drv), State};
+            {reply, drv_get_battery_status(State#state.drv), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call(get_smsc, _From, State) ->
     if State#state.drv_up ->
-	    {reply, drv_get_smsc(State#state.drv), State};
+            {reply, drv_get_smsc(State#state.drv), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call({list_messages,N},_From,State) ->
     if State#state.drv_up ->
-	    {reply, drv_list_messages(State#state.drv, N), State};
+            {reply, drv_list_messages(State#state.drv, N), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call({delete_message,I},_From,State) ->
     if State#state.drv_up ->
-	    {reply, drv_delete_message(State#state.drv,I), State};
+            {reply, drv_delete_message(State#state.drv,I), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 handle_call({delete_messages,F},_From,State) when F>0 ->
     if State#state.drv_up ->
-	    {reply, drv_delete_message(State#state.drv,0,F), State};
+            {reply, drv_delete_message(State#state.drv,0,F), State};
        true ->
-	    {reply, {error, not_up}, State}
+            {reply, {error, not_up}, State}
     end;
 
 
@@ -433,33 +434,33 @@ handle_cast(_Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info({gsms_event,Ref,Event}, State) when State#state.ref =:= Ref ->
     case Event of
-	{cmti,[{"store",_Name},{"index", Ix}]} ->
-	    %% read a stored message
-	    case drv_read_message(State#state.drv, Ix) of
-		{ok, Sms} ->
-		    lager:debug("read_message: ~p", [Sms]),
-		    State1 = handle_sms(Sms, Ix, State),
-		    {noreply, State1};
-		Error ->
-		    lager:info("read_message failed: ~p\n", [Error]),
-		    {noreply, State}
-	    end;
-	{data,"+CREG:"++Params} ->
-	    case erl_scan:string(Params) of
-		{ok,[{integer,_,Status}|_],_} ->
-		    %% we do not use the the access value
-		    gsms_router:input_from(State#state.bnumber,{creg,Status}),
-		    {noreply, State};
-		_ ->
-		    lager:info("event ignored ~p\n", [Event]),
-		    {noreply, State}
-	    end;
-	_ ->
-	    lager:info("event ignored ~p\n", [Event]),
-	    {noreply, State}
+        {cmti,[{"store",_Name},{"index", Ix}]} ->
+            %% read a stored message
+            case drv_read_message(State#state.drv, Ix) of
+                {ok, Sms} ->
+                    ?debug("read_message: ~p", [Sms]),
+                    State1 = handle_sms(Sms, Ix, State),
+                    {noreply, State1};
+                Error ->
+                    ?info("read_message failed: ~p\n", [Error]),
+                    {noreply, State}
+            end;
+        {data,"+CREG:"++Params} ->
+            case erl_scan:string(Params) of
+                {ok,[{integer,_,Status}|_],_} ->
+                    %% we do not use the the access value
+                    gsms_router:input_from(State#state.bnumber,{creg,Status}),
+                    {noreply, State};
+                _ ->
+                    ?info("event ignored ~p\n", [Event]),
+                    {noreply, State}
+            end;
+        _ ->
+            ?info("event ignored ~p\n", [Event]),
+            {noreply, State}
     end;
 handle_info({gsms_uart, Pid, up}, State) when State#state.drv =:= Pid ->
-    %% gsms_uart is up and running 
+    %% gsms_uart is up and running
     %% FIXME: check if sim is locked & unlock if possible
     gsms_uart:at(Pid,"E0"),  %% disable echo (again)
     timer:sleep(100),        %% help?
@@ -467,93 +468,93 @@ handle_info({gsms_uart, Pid, up}, State) when State#state.drv =:= Pid ->
     ok = drv_set_csms_pdu_mode(Pid),
     ok = drv_set_csms_notification(Pid),
     BNumber = if State#state.bnumber =:= "" ->
-		      case drv_get_msisdn(Pid) of
-			  ok -> "";
-			  {ok,B} -> B
-		      end;
-		 true -> 
-		      State#state.bnumber
-	      end,
+                      case drv_get_msisdn(Pid) of
+                          ok -> "";
+                          {ok,B} -> B
+                      end;
+                 true ->
+                      State#state.bnumber
+              end,
     State1 = State#state { bnumber = BNumber, drv_up = true },
     ok = gsms_router:join(BNumber, State1#state.attributes),
     %% make sure we scan messages that arrived while we where gone,
     scan_input(self()),
-    lager:debug("running state = ~p", [State1]),
+    ?debug("running state = ~p", [State1]),
     {noreply, State1};
 
 handle_info({timeout,TRef,{cancel,Key}}, State) ->
     %% reject incoming message because of timeout
     Q = State#state.inq,
     case lists:keytake(Key, 1, Q) of
-	false ->
-	    lager:warning("message from ~p not present in timeout", [Key]),
-	    {noreply, State};
-	{value,{_,TRef,_N,Segments},Q0} ->
-	    lager:warning("message from ~p dropped, timeout", [Key]),
-	    lists:foreach(
-	      fun({_I,Ix,_}) ->
-		      drv_delete_message(State#state.drv, Ix)
-	      end, Segments),
-	    {noreply, State#state {inq = Q0}}
+        false ->
+            ?warning("message from ~p not present in timeout", [Key]),
+            {noreply, State};
+        {value,{_,TRef,_N,Segments},Q0} ->
+            ?warning("message from ~p dropped, timeout", [Key]),
+            lists:foreach(
+              fun({_I,Ix,_}) ->
+                      drv_delete_message(State#state.drv, Ix)
+              end, Segments),
+            {noreply, State#state {inq = Q0}}
     end;
 handle_info(scan_input, State) ->
     %% scan_input should be run after startup to get buffered
     %% messages stored in SIM card while application was down
     case drv_list_indices(State#state.drv) of
-	{ok,[Ixs | _]} ->
-	    Pid = self(),
-	    Ref = State#state.ref,
-	    lists:foreach(
-	      fun(Ix) ->
-		      Event = {cmti,[{"store","SM"},{"index",Ix}]},
-		      Pid ! {gsms_event,Ref,Event}
-	      end, expand_index_list(Ixs)),
-	    {noreply, State};
-	Reply ->
-	    lager:debug("list_indices reply ~p", [Reply]),
-	    {noreply, State}
+        {ok,[Ixs | _]} ->
+            Pid = self(),
+            Ref = State#state.ref,
+            lists:foreach(
+              fun(Ix) ->
+                      Event = {cmti,[{"store","SM"},{"index",Ix}]},
+                      Pid ! {gsms_event,Ref,Event}
+              end, expand_index_list(Ixs)),
+            {noreply, State};
+        Reply ->
+            ?debug("list_indices reply ~p", [Reply]),
+            {noreply, State}
     end;
 handle_info(send, State) ->
     %% send next PDU
     case State#state.outq of
-	[{send,I,N,SRef,Notify,Sender,Pdu}|OutQ] ->
-	    gsms_codec:dump_yang(Pdu),
-	    Bin = gsms_codec:encode_sms(Pdu),
-	    Hex = gsms_codec:binary_to_hex(Bin),
-	    Len = (length(Hex)-2) div 2,
-	    Reply =
-		gsms_uart:atd(State#state.drv,
-			      "+CMGS="++integer_to_list(Len),Hex),
-	    lager:debug("send status segment ~w of ~w response=~p\n", 
-			[I,N,Reply]),
-	    %% Fixme handle Reply=error!!! cancel rest of segments etc
-	    if I =:= N, Notify =:= true ->
-		    Sender ! {gsms_notify, SRef, ok};
-	       true ->
-		    ok
-	    end,
-	    {noreply, sending(OutQ, State)};
-	[{write,I,N,SRef,Notify,Sender,Pdu}|OutQ] ->
-	    gsms_codec:dump_yang(Pdu),
-	    Bin = gsms_codec:encode_sms(Pdu),
-	    Hex = gsms_codec:binary_to_hex(Bin),
-	    Len = (length(Hex)-2) div 2,
-	    Reply = gsms_uart:atd(State#state.drv,
-				  "+CMGW="++integer_to_list(Len),Hex),
-	    lager:debug("wrote status segment ~w of ~w response=~p\n", 
-			[I,N,Reply]),
-	    %% Fixme handle Reply=error!!! cancel rest of segments etc
-	    if I =:= N, Notify -> %% assume ok 
-		    Sender ! {gsms_notify, SRef, ok};
-	       true ->
-		    ok
-	    end,
-	    {noreply, sending(OutQ, State)};
-	[] ->
-	    {noreply, State#state { sending = false }}
+        [{send,I,N,SRef,Notify,Sender,Pdu}|OutQ] ->
+            gsms_codec:dump_yang(Pdu),
+            Bin = gsms_codec:encode_sms(Pdu),
+            Hex = gsms_codec:binary_to_hex(Bin),
+            Len = (length(Hex)-2) div 2,
+            Reply =
+                gsms_uart:atd(State#state.drv,
+                              "+CMGS="++integer_to_list(Len),Hex),
+            ?debug("send status segment ~w of ~w response=~p\n",
+                        [I,N,Reply]),
+            %% Fixme handle Reply=error!!! cancel rest of segments etc
+            if I =:= N, Notify =:= true ->
+                    Sender ! {gsms_notify, SRef, ok};
+               true ->
+                    ok
+            end,
+            {noreply, sending(OutQ, State)};
+        [{write,I,N,SRef,Notify,Sender,Pdu}|OutQ] ->
+            gsms_codec:dump_yang(Pdu),
+            Bin = gsms_codec:encode_sms(Pdu),
+            Hex = gsms_codec:binary_to_hex(Bin),
+            Len = (length(Hex)-2) div 2,
+            Reply = gsms_uart:atd(State#state.drv,
+                                  "+CMGW="++integer_to_list(Len),Hex),
+            ?debug("wrote status segment ~w of ~w response=~p\n",
+                        [I,N,Reply]),
+            %% Fixme handle Reply=error!!! cancel rest of segments etc
+            if I =:= N, Notify -> %% assume ok
+                    Sender ! {gsms_notify, SRef, ok};
+               true ->
+                    ok
+            end,
+            {noreply, sending(OutQ, State)};
+        [] ->
+            {noreply, State#state { sending = false }}
     end;
 handle_info(_Info, State) ->
-    {noreply, State}.    
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -594,13 +595,13 @@ drv_reset(Drv)  ->
     drv_set_csms_notification(Drv).
 
 
--spec drv_init_csms_service(Drv::uart_driver()) -> ok.    
+-spec drv_init_csms_service(Drv::uart_driver()) -> ok.
 drv_init_csms_service(Drv) ->
     ok = drv_check_csms_capability(Drv),
     ok = drv_set_csms_pdu_mode(Drv),
     ok = drv_set_csms_notification(Drv),
     %% how do we read the stored pdu like they where receive and when?
-    %% trigger automatic read of stored SMS when a subsrciber is 
+    %% trigger automatic read of stored SMS when a subsrciber is
     %% registered? subscriber need to ack in order to delete the
     %% stored SMS
     ok.
@@ -609,37 +610,37 @@ drv_init_csms_service(Drv) ->
 -spec drv_check_csms_capability(Drv::uart_driver()) -> ok.
 drv_check_csms_capability(Drv) ->
     case gsms_uart:at(Drv,"+CSMS=0") of
-	{ok, "+CSMS:"++Storage} ->
-	    lager:debug("sms_capability: +CSMS: ~s", [Storage]);
-	Error ->
-	    Error
+        {ok, "+CSMS:"++Storage} ->
+            ?debug("sms_capability: +CSMS: ~s", [Storage]);
+        Error ->
+            Error
     end.
 
 -spec drv_set_csms_pdu_mode(Drv::uart_driver()) -> ok.
 
-drv_set_csms_pdu_mode(Drv) ->  
+drv_set_csms_pdu_mode(Drv) ->
     gsms_uart:at(Drv,"+CMGF=0").
 
 %% AT+CNMI=1,1,0,0,0 Set the new message indicators.
 %%
 %% AT+CNMI=<mode>,<mt>,<bm>,<ds>,<bfr>
-%% 
-%% <mode>=1 discard unsolicited result codes indication when TA – 
+%%
+%% <mode>=1 discard unsolicited result codes indication when TA –
 %%          TE link is reserved.
-%% <mt>=1 SMS-DELIVERs are delivered to the SIM and routed using 
+%% <mt>=1 SMS-DELIVERs are delivered to the SIM and routed using
 %%        unsolicited code.
 %% <bm>=0 no CBM indications are routed to the TE.
 %% <ds>=0 no SMS-STATUS-REPORTs are routed.
 %% <bfr>=0 TA buffer of unsolicited result codes defined within this
 %%         command is flushed to the TE.
 %% OK Modem Response.
-drv_set_csms_notification(Drv) -> 
+drv_set_csms_notification(Drv) ->
     gsms_uart:at(Drv,"+CNMI=1,1,0,0,0").
 
 %% pick up information about various things
-drv_get_version(Drv) -> 
+drv_get_version(Drv) ->
     gsms_uart:at(Drv,"+CGMR").
-    
+
 drv_get_manufacturer(Drv) ->
     gsms_uart:at(Drv,"+CGMI").
 
@@ -655,13 +656,13 @@ drv_get_msisdn(Drv) ->
 drv_get_imsi(Drv) ->
     gsms_uart:at(Drv,"+CIMI").
 
-drv_get_activity_status(Drv) -> 
-    gsms_uart:eat(Drv,"+CPAS").
+drv_get_activity_status(Drv) ->
+    gsms_uart:at(Drv,"+CPAS").
 
 drv_get_network_registration_status(Drv) ->
     gsms_uart:at(Drv,"+CREG?").
 
-drv_get_signal_strength(Drv) -> 
+drv_get_signal_strength(Drv) ->
     gsms_uart:at(Drv,"+CSQ").
 
 drv_get_battery_status(Drv) ->
@@ -669,18 +670,18 @@ drv_get_battery_status(Drv) ->
 
 drv_get_smsc(Drv) ->
     gsms_uart:at(Drv, "+CSCA?").
-    
+
 %% SMS commands
 
 drv_list_unread_messages(Drv) ->
     drv_list_messages(Drv, 0).
-drv_list_read_messages(Drv)   ->  
+drv_list_read_messages(Drv)   ->
     drv_list_messages(Drv, 1).
-drv_list_unsent_messages(Drv) ->  
+drv_list_unsent_messages(Drv) ->
     drv_list_messages(Drv, 2).
-drv_list_sent_messages(Drv)   ->  
+drv_list_sent_messages(Drv)   ->
     drv_list_messages(Drv, 3).
-drv_list_all_messages(Drv)    ->  
+drv_list_all_messages(Drv)    ->
     drv_list_messages(Drv, 4).
 
 drv_list_messages(Drv, N) when is_integer(N), N>=0, N=<4 ->
@@ -689,15 +690,15 @@ drv_list_messages(Drv, N) when is_integer(N), N>=0, N=<4 ->
 %% message list
 drv_list_indices(Drv) ->
     case gsms_uart:at(Drv,"+CMGD=?") of
-	{ok,"+CMGD:"++Params} ->
-	    case erl_scan:string(Params) of
-		{ok,Ts,_} ->
-		    parse_index_lists(Ts);
-		Error ->
-		    Error
-	    end;
-	Error ->
-	    Error
+        {ok,"+CMGD:"++Params} ->
+            case erl_scan:string(Params) of
+                {ok,Ts,_} ->
+                    parse_index_lists(Ts);
+                Error ->
+                    Error
+            end;
+        Error ->
+            Error
     end.
 
 
@@ -718,47 +719,47 @@ drv_delete_all_message(Drv) ->
 
 drv_read_message(Drv,I) when is_integer(I), I>=0 ->
     case gsms_uart:at(Drv,"+CMGR="++integer_to_list(I)) of
-	ok ->
-	    {error, no_such_index};
-	{ok,["+CMGR: "++_StatStoreLen,HexPdu]} ->
-	    gsms_codec:decode_in_hex(HexPdu);
-	{error, Error} ->
-	    {error, cms_error(Error)}
+        ok ->
+            {error, no_such_index};
+        {ok,["+CMGR: "++_StatStoreLen,HexPdu]} ->
+            gsms_codec:decode_in_hex(HexPdu);
+        {error, Error} ->
+            {error, cms_error(Error)}
     end.
 
 
 %% test send message
 drv_send_message(Drv,Opts,Body) ->
     case gsms_codec:make_sms_submit(Opts, Body) of
-	{ok,PduList} ->
-	    lists:foreach(
-	      fun(Pdu) ->
-		      gsms_codec:dump_yang(Pdu),
-		      Bin = gsms_codec:encode_sms(Pdu),
-		      Hex = gsms_codec:binary_to_hex(Bin),
-		      Len = (length(Hex)-2) div 2,
-		      gsms_uart:atd(Drv,"+CMGS="++integer_to_list(Len),Hex)
-	      end, PduList),
-	    ok;
-	Error ->
-	    Error
+        {ok,PduList} ->
+            lists:foreach(
+              fun(Pdu) ->
+                      gsms_codec:dump_yang(Pdu),
+                      Bin = gsms_codec:encode_sms(Pdu),
+                      Hex = gsms_codec:binary_to_hex(Bin),
+                      Len = (length(Hex)-2) div 2,
+                      gsms_uart:atd(Drv,"+CMGS="++integer_to_list(Len),Hex)
+              end, PduList),
+            ok;
+        Error ->
+            Error
     end.
 
 %% test write message
 drv_write_message(Drv,Opts,Body) ->
     case gsms_codec:make_sms_submit(Opts, Body) of
-	{ok,PduList} ->
-	    lists:foreach(
-	      fun(Pdu) ->
-		      gsms_codec:dump_yang(Pdu),
-		      Bin = gsms_codec:encode_sms(Pdu),
-		      Hex = gsms_codec:binary_to_hex(Bin),
-		      Len = (length(Hex)-2) div 2,
-		      gsms_uart:atd(Drv,"+CMGW="++integer_to_list(Len),Hex)
-	      end, PduList),
-	    ok;
-	Error ->
-	    Error
+        {ok,PduList} ->
+            lists:foreach(
+              fun(Pdu) ->
+                      gsms_codec:dump_yang(Pdu),
+                      Bin = gsms_codec:encode_sms(Pdu),
+                      Hex = gsms_codec:binary_to_hex(Bin),
+                      Len = (length(Hex)-2) div 2,
+                      gsms_uart:atd(Drv,"+CMGW="++integer_to_list(Len),Hex)
+              end, PduList),
+            ok;
+        Error ->
+            Error
     end.
 
 parse_index_lists(Ts) ->
@@ -784,7 +785,7 @@ parse_index_list([{integer,_,I}|Ts],Iv,Acc) ->
 parse_index_list([{')',_}|Ts],Iv,Acc) ->
     parse_index_lists1(Ts,[lists:reverse(Iv)|Acc]);
 parse_index_list(_Ts, _Iv, _Acc) ->
-    {error, {syntax_error,_Ts}}.    
+    {error, {syntax_error,_Ts}}.
 
 parse_index_list1([{',',_},{integer,_,I},{'-',_},{integer,_,J}|Ts],Iv,Acc) ->
     parse_index_list1(Ts,[{I,J}|Iv],Acc);
@@ -833,22 +834,22 @@ setopts(Opts, State) ->
 
 setopts([Opt|Opts], State, Opts1) ->
     case Opt of
-	{simpin,Pin} when is_list(Pin) ->
-	    setopts(Opts, State#state { simpin = Pin }, Opts1);
-	{bnumber,BNumber} when is_list(BNumber) ->
-	    setopts(Opts, State#state { bnumber = BNumber }, Opts1);
-	{attributes,As} when is_list(As) ->
-	    setopts(Opts, State#state { attributes = As }, Opts1);
-	{segment_timeout,T} when is_integer(T), T >= 0 ->
-	    setopts(Opts, State#state { segment_timeout = T }, Opts1);
-	{send_delay, T}  when is_integer(T), T >= 0 ->
-	    setopts(Opts, State#state { send_delay = T }, Opts1);
-	{concat_8bit, B} when is_boolean(B) ->
-	    setopts(Opts, State#state { concat_8bit = B }, Opts1);
-	{concat_seq, B} when is_boolean(B) ->
-	    setopts(Opts, State#state { concat_seq = B }, Opts1);
-	_ ->
-	    setopts(Opts, State, [Opt|Opts1])
+        {simpin,Pin} when is_list(Pin) ->
+            setopts(Opts, State#state { simpin = Pin }, Opts1);
+        {bnumber,BNumber} when is_list(BNumber) ->
+            setopts(Opts, State#state { bnumber = BNumber }, Opts1);
+        {attributes,As} when is_list(As) ->
+            setopts(Opts, State#state { attributes = As }, Opts1);
+        {segment_timeout,T} when is_integer(T), T >= 0 ->
+            setopts(Opts, State#state { segment_timeout = T }, Opts1);
+        {send_delay, T}  when is_integer(T), T >= 0 ->
+            setopts(Opts, State#state { send_delay = T }, Opts1);
+        {concat_8bit, B} when is_boolean(B) ->
+            setopts(Opts, State#state { concat_8bit = B }, Opts1);
+        {concat_seq, B} when is_boolean(B) ->
+            setopts(Opts, State#state { concat_seq = B }, Opts1);
+        _ ->
+            setopts(Opts, State, [Opt|Opts1])
     end;
 setopts([], State, Opts1) ->
     {lists:reverse(Opts1), State}.
@@ -856,20 +857,20 @@ setopts([], State, Opts1) ->
 
 next_concat_ref(Opts, State) ->
     case lists:keymember(ref,1,Opts) of
-	true  -> %% ref is givent in the pdu 
-	    {State#state.concat_ref, Opts};
-	false ->
-	    CRef0 = if State#state.concat_seq ->
-			    State#state.concat_ref + 1;
-		       true ->
-			    random:unifrom(16#10000)-1
-		    end,
-	    CRef1 = if State#state.concat_8bit ->
-			    CRef0 band 16#ff;
-		       true ->
-			    CRef0 band 16#ffff
-		    end,
-	    {CRef1, [{ref,CRef1} | Opts]}
+        true  -> %% ref is givent in the pdu
+            {State#state.concat_ref, Opts};
+        false ->
+            CRef0 = if State#state.concat_seq ->
+                            State#state.concat_ref + 1;
+                       true ->
+                            random:uniform(16#10000)-1
+                    end,
+            CRef1 = if State#state.concat_8bit ->
+                            CRef0 band 16#ff;
+                       true ->
+                            CRef0 band 16#ffff
+                    end,
+            {CRef1, [{ref,CRef1} | Opts]}
     end.
 
 %%
@@ -884,44 +885,44 @@ sending(OutQ, State) ->
 handle_sms(Sms, Ix, State) ->
     %% check if this is Sms is part of an concatenated message
     case lists:keyfind(concat, 1, Sms#gsms_deliver_pdu.udh) of
-	false -> %% singleton message, forward
-	    forward_sms(Sms, [Ix], State);
-	{concat,_MRef,1,1} -> %% singleton message, forward !
-	    forward_sms(Sms, [Ix], State);
-	{concat,MRef,N,I} when I > 0, I =< N ->
-	    %% check if we already have segments stored
-	    Key = {Sms#gsms_deliver_pdu.addr,MRef},
-	    Q = State#state.inq,
-	    Tmo = State#state.segment_timeout,
-	    case lists:keytake(Key, 1, Q) of
-		false -> %% new enqueue
-		    TRef = start_timer(Tmo,{cancel,Key}),
-		    Segments = [{I,Ix,Sms}],
-		    Q1 = [{Key,TRef,N,Segments} | Q],
-		    State#state { inq = Q1 };
-		{value,{_,TRef,N,Segments},Q0} ->
-		    case lists:keymember(I,1,Segments) of
-			false ->
-			    stop_timer(TRef),
-			    Segments1 = [{I,Ix,Sms}|Segments],
-			    case length(Segments1) of
-				N ->
-				    {Sms1,Ixs} = assemble_sms(Segments1),
-				    State1 = State#state { inq=Q0},
-				    forward_sms(Sms1,Ixs,State1);
-				_ ->
-				    TRef1 = start_timer(Tmo,{cancel,Key}),
-				    Q1 = [{Key,TRef1,N,Segments1} | Q0],
-				    State#state { inq=Q1 }
-			    end;
-			true ->
-			    lager:warning("segment ~w already received!", [I]),
-			    State
-		    end
-	    end;
-	Concat ->
-	    lager:warning("bad concat udh element ~p", [Concat]),
-	    State
+        false -> %% singleton message, forward
+            forward_sms(Sms, [Ix], State);
+        {concat,_MRef,1,1} -> %% singleton message, forward !
+            forward_sms(Sms, [Ix], State);
+        {concat,MRef,N,I} when I > 0, I =< N ->
+            %% check if we already have segments stored
+            Key = {Sms#gsms_deliver_pdu.addr,MRef},
+            Q = State#state.inq,
+            Tmo = State#state.segment_timeout,
+            case lists:keytake(Key, 1, Q) of
+                false -> %% new enqueue
+                    TRef = start_timer(Tmo,{cancel,Key}),
+                    Segments = [{I,Ix,Sms}],
+                    Q1 = [{Key,TRef,N,Segments} | Q],
+                    State#state { inq = Q1 };
+                {value,{_,TRef,N,Segments},Q0} ->
+                    case lists:keymember(I,1,Segments) of
+                        false ->
+                            stop_timer(TRef),
+                            Segments1 = [{I,Ix,Sms}|Segments],
+                            case length(Segments1) of
+                                N ->
+                                    {Sms1,Ixs} = assemble_sms(Segments1),
+                                    State1 = State#state { inq=Q0},
+                                    forward_sms(Sms1,Ixs,State1);
+                                _ ->
+                                    TRef1 = start_timer(Tmo,{cancel,Key}),
+                                    Q1 = [{Key,TRef1,N,Segments1} | Q0],
+                                    State#state { inq=Q1 }
+                            end;
+                        true ->
+                            ?warning("segment ~w already received!", [I]),
+                            State
+                    end
+            end;
+        Concat ->
+            ?warning("bad concat udh element ~p", [Concat]),
+            State
     end.
 
 %%
@@ -931,31 +932,31 @@ forward_sms(Sms, Ixs, State) ->
     gsms_router:input_from(State#state.bnumber, Sms),
     lists:foreach(
       fun(Ix) ->
-	      drv_delete_message(State#state.drv, Ix)
+              drv_delete_message(State#state.drv, Ix)
       end, Ixs),
     State.
 
 %% assemble sms segments into one message,
 %% assume all I 1..N are present (by pigeon hole principle)
 -spec assemble_sms([isegment_t()]) ->
-			  {#gsms_deliver_pdu{}, [Ix::integer()]}.
-		      
+                          {#gsms_deliver_pdu{}, [Ix::integer()]}.
+
 assemble_sms(Segments) ->
     [{1,Ix,Sms} | Segments1] = lists:keysort(1, Segments),
     Udh0 = lists:keydelete(concat, 1, Sms#gsms_deliver_pdu.udh),
     Sms0 = Sms#gsms_deliver_pdu { udh=Udh0, udl=0, ud=[] },
     assemble_(Segments1,
-	     [Sms#gsms_deliver_pdu.ud], Sms#gsms_deliver_pdu.udl,
-	     [Ix], Sms0).
+             [Sms#gsms_deliver_pdu.ud], Sms#gsms_deliver_pdu.udl,
+             [Ix], Sms0).
 
 assemble_([{_,Ix,Sms}|Segments], Uds, Udl, Ixs, Sms0) ->
     assemble_(Segments,
-	     [Sms#gsms_deliver_pdu.ud|Uds], Sms#gsms_deliver_pdu.udl + Udl,
-	     [Ix|Ixs], Sms0);
+             [Sms#gsms_deliver_pdu.ud|Uds], Sms#gsms_deliver_pdu.udl + Udl,
+             [Ix|Ixs], Sms0);
 assemble_([], Uds, Udl, Ixs, Sms0) ->
     Ud = lists:append(lists:reverse(Uds)),
     {Sms0#gsms_deliver_pdu { udl = Udl, ud = Ud }, lists:reverse(Ixs)}.
-	     
+
 
 start_timer(Time, Message) ->
     erlang:start_timer(Time, self(), Message).
@@ -965,8 +966,8 @@ stop_timer(undefined) ->
 stop_timer(Ref) ->
     erlang:cancel_timer(Ref),
     receive
-	{timeout, Ref, _} -> 
-	    ok
-    after 0 -> 
-	    ok
+        {timeout, Ref, _} ->
+            ok
+    after 0 ->
+            ok
     end.
